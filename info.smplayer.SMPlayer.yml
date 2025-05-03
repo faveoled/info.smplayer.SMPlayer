@@ -1,6 +1,4 @@
 app-id: info.smplayer.SMPlayer
-base: io.qt.qtwebengine.BaseApp
-base-version: '5.15-24.08'
 runtime: org.kde.Platform
 runtime-version: '5.15-24.08'
 sdk: org.kde.Sdk
