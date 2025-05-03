@@ -15,7 +15,13 @@ finish-args:
   - '--filesystem=host'
   - '--talk-name=org.freedesktop.ScreenSaver'
   - '--own-name=org.mpris.MediaPlayer2.smplayer'
-
+add-extensions:
+  org.freedesktop.Platform.ffmpeg-full:
+    version: '24.08'
+    directory: lib/ffmpeg
+    add-ld-path: .
+cleanup-commands:
+  - mkdir -p ${FLATPAK_DEST}/lib/ffmpeg
 modules:
   - name: smplayer
     buildsystem: simple
@@ -40,137 +46,121 @@ modules:
         disable-shallow-clone: true
 
     modules:
-      - name: mpv
+      - name: libmpv
         cleanup:
-          - /include
-          - /lib/pkgconfig
-          - /share/man
-        buildsystem: simple
-        build-commands:
-          - python3 waf configure --prefix=/app
-                                  --enable-libarchive
-                                  --enable-gl-x11
-                                  --disable-pipewire
-          - python3 waf build
-          - python3 waf install
+          - /share/bash-completion
+          - /share/zsh
+          - /share/doc
+          - /share/icons
+          - /share/applications
+        buildsystem: meson
+        config-opts:
+          - -Dlibmpv=true
+          - -Dlua=enabled
+          - -Ddebug=false
+          - -Dbuild-date=false
+          - -Dalsa=disabled
+          - -Dmanpage-build=disabled
         sources:
-          - type: git
-            url: 'https://github.com/smplayer-dev/mpv.git'
-            tag: v0.36.0
-            commit: ca9dd6d18b7832127a8158950c8c2c2138225e5e
-          - type: file
-            url: 'https://waf.io/waf-2.0.21'
-            sha256: '7cebf2c5efe53cbb9a4b5bdc4b49ae90ecd64a8fce7a3222d58e591b58215306'
-            dest-filename: waf
-
+          - type: archive
+            url: https://github.com/mpv-player/mpv/archive/refs/tags/v0.40.0.tar.gz
+            sha256: 10a0f4654f62140a6dd4d380dcf0bbdbdcf6e697556863dc499c296182f081a3
+            x-checker-data:
+              type: anitya
+              project-id: 5348
+              stable-only: true
+              url-template: https://github.com/mpv-player/mpv/archive/refs/tags/v$version.tar.gz
+          - type: patch
+            path: fix-hwdec.diff
         modules:
+          - name: luajit
+            no-autogen: true
+            make-args:
+              - BUILDMODE=dynamic
+              - PREFIX=${FLATPAK_DEST}
+            make-install-args:
+              - PREFIX=${FLATPAK_DEST}
+            sources:
+              - type: git
+                url: https://github.com/openresty/luajit2.git
+                tag: v2.1-20250117
+                commit: 93162f34e7424cd0ea3c4046a9ffacce621626bc
+                x-checker-data:
+                  type: git
+                  tag-pattern: ^v([\d.-]+)$
+                  stable-only: false
+            cleanup:
+                 
+          - name: libplacebo
+            buildsystem: meson
+            config-opts:
+              - -Dd3d11=disabled
+              - -Ddemos=False
+            sources:
+              - type: archive
+                url: https://code.videolan.org/videolan/libplacebo/-/archive/v7.349.0/libplacebo-v7.349.0.tar.gz
+                sha256: 79120e685a1836344b51b13b6a5661622486a84e4d4a35f6c8d01679a20fbc86
+                x-checker-data:
+                  type: anitya
+                  project-id: 20101
+                  stable-only: true
+                  url-template: https://code.videolan.org/videolan/libplacebo/-/archive/v$version/libplacebo-v$version.tar.gz
+              - type: archive
+                url: https://github.com/pallets/jinja/archive/refs/tags/3.1.6.tar.gz
+                sha256: 2074b22a72caa65474902234b320d73463d6d4c223ee49f4b433495758356337
+                dest: 3rdparty/jinja
+                x-checker-data:
+                  type: anitya
+                  project-id: 3894
+                  url-template: https://github.com/pallets/jinja/archive/refs/tags/$version.tar.gz
+              - type: archive
+                url: https://github.com/Dav1dde/glad/archive/refs/tags/v2.0.8.tar.gz
+                sha256: 44f06f9195427c7017f5028d0894f57eb216b0a8f7c4eda7ce883732aeb2d0fc
+                dest: 3rdparty/glad
+                x-checker-data:
+                  type: anitya
+                  project-id: 300234
+                  url-template: https://github.com/Dav1dde/glad/archive/refs/tags/v$versi      
           - name: libXpresent
             buildsystem: autotools
             sources:
-              - type: git
-                url: https://gitlab.freedesktop.org/xorg/lib/libxpresent.git
-                tag: libXpresent-1.0.1
-                commit: 37507b5f44332accfb1064ee69a4f6a833994747
-
-          - name: luajit
-            no-autogen: true
-            cleanup:
-              - /bin
-              - /include
-              - /lib/pkgconfig
-              - /share/man
-            sources:
-              - type: git
-                url: https://github.com/LuaJIT/LuaJIT.git
-                mirror-urls:
-                  - https://luajit.org/git/luajit.git
-                disable-shallow-clone: true
-                commit: eec7a8016c3381b949b5d84583800d05897fa960
-              - type: shell
-                commands:
-                  - sed -i 's|/usr/local|/app|' ./Makefile
-
-          - name: nv-codec-headers
-            disabled: true
-            cleanup:
-              - '*'
-            no-autogen: true
-            make-install-args:
-              - PREFIX=/app
-            sources:
               - type: archive
-                url: 'https://github.com/FFmpeg/nv-codec-headers/releases/download/n11.0.10.0/nv-codec-headers-11.0.10.0.tar.gz'
-                sha256: 'e5d1fe6b18254a3c8747a38714564030e4fda506961a11a7eafb94f2400419bb'
-
-          - name: ffmpeg
-            #disabled: true
-            cleanup:
-              - /include
-              - /lib/pkgconfig
-              - /share/ffmpeg/examples
-            config-opts:
-              - '--enable-shared'
-              - '--disable-static'
-              - '--enable-gnutls'
-              - '--enable-gpl'
-              - '--disable-doc'
-              - '--disable-programs'
-              - '--disable-encoders'
-              - '--disable-muxers'
-              - '--enable-encoder=png,libwebp'
-              - '--enable-libv4l2'
-              - '--enable-libdav1d'
-              - '--enable-libfontconfig'
-              - '--enable-libfreetype'
-              - '--enable-libopus'
-              - '--enable-librsvg'
-              - '--enable-libvpx'
-              - '--enable-libmp3lame'
-              - '--enable-libwebp'
-            sources:
-              - type: archive
-                url: https://www.ffmpeg.org/releases/ffmpeg-7.0.1.tar.xz
-                sha256: bce9eeb0f17ef8982390b1f37711a61b4290dc8c2a0c1a37b5857e85bfb0e4ff
+                url: https://xorg.freedesktop.org/archive/individual/lib/libXpresent-1.0.1.tar.xz
+                sha256: b964df9e5a066daa5e08d2dc82692c57ca27d00b8cc257e8e960c9f1cf26231b
+                x-checker-data:
+                  type: anitya
+                  project-id: 17166
+                  stable-only: true
+                  url-template: https://xorg.freedesktop.org/archive/individual/lib/libXpresent-$versi      
           - name: libass
-            cleanup:
-              - /include
-              - /lib/*.la
-              - /lib/pkgconfig
             config-opts:
-              - '--disable-static'
+              - --disable-static
             sources:
               - type: archive
-                url: 'https://github.com/libass/libass/releases/download/0.15.0/libass-0.15.0.tar.gz'
-                sha256: '9cbddee5e8c87e43a5fe627a19cd2aa4c36552156eb4edcf6c5a30bd4934fe58'
-
+                url: https://github.com/libass/libass/releases/download/0.17.3/libass-0.17.3.tar.gz
+                sha256: da7c348deb6fa6c24507afab2dee7545ba5dd5bbf90a137bfe9e738f7df68537
+                x-checker-data:
+                  type: anitya
+                  project-id: 1560
+                  stable-only: true
+                  url-template: https://github.com/libass/libass/releases/download/$version/libass-$versi      
           - name: uchardet
-            disabled: true
             buildsystem: cmake-ninja
             config-opts:
-              - '-DCMAKE_BUILD_TYPE=Release'
-              - '-DBUILD_STATIC=0'
+              - -DCMAKE_BUILD_TYPE=Release
+              - -DBUILD_STATIC=0
             cleanup:
               - /bin
-              - /include
-              - /lib/pkgconfig
-              - /share/man
             sources:
               - type: archive
-                url: 'https://gitlab.freedesktop.org/uchardet/uchardet/-/archive/v0.0.7/uchardet-v0.0.7.tar.gz'
-                sha256: 'f3635d1d10e1470452bc42c1bf509451a9926b399a11740a9949e86069d69f58'
+                url: https://www.freedesktop.org/software/uchardet/releases/uchardet-0.0.8.tar.xz
+                sha256: e97a60cfc00a1c147a674b097bb1422abd9fa78a2d9ce3f3fdcc2e78a34ac5f0
+                x-checker-data:
+                  type: anitya
+                  project-id: 9265
+                  stable-only: true
+                  url-template: https://www.freedesktop.org/software/uchardet/releases/uchardet-$version.tar.xz
 
-          - name: fribidi
-            disabled: true
-            cleanup:
-              - "/bin"
-              - "/include"
-              - "/lib/pkgconfig"
-              - "/lib/*.la"
-              - "/share/man"
-            sources:
-              - type: archive
-                url: https://github.com/fribidi/fribidi/releases/download/v1.0.5/fribidi-1.0.5.tar.bz2
-                sha256: 6a64f2a687f5c4f203a46fa659f43dd43d1f8b845df8d723107e8a7e6158e4ce
 
       - name: mplayer
         disabled: true
