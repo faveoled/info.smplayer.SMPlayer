@@ -31,10 +31,10 @@ modules:
       arch:
         x86_64:
           env:
-            QDEFOPTS: DEFINES+=USE_SHM DEFINES+=USE_GL_WINDOW DEFINES+=NO_MPLAYER
+            QDEFOPTS: DEFINES+=NO_MPLAYER
         aarch64:
           env:
-            QDEFOPTS: DEFINES+=USE_SHM DEFINES+=NO_MPLAYER
+            QDEFOPTS: DEFINES+=NO_MPLAYER
     build-commands:
       - make PREFIX=/app QMAKE_OPTS="$QDEFOPTS" -j$FLATPAK_BUILDER_N_JOBS install
       - install -Dm644 icons/smplayer.svg /app/share/icons/hicolor/scalable/apps/smplayer.svg
