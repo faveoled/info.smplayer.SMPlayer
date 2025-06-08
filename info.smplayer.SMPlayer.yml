@@ -41,8 +41,8 @@ modules:
     sources:
       - type: git
         url: https://github.com/smplayer-dev/smplayer.git
-        tag: v24.5.0
-        commit: dc37d6faef17b1892d30ab31ec1295ec09e803ea
+        tag: v25.6.0
+        commit: 4a27de33a4cab71215002f138daab1e3c69ca7ef
         disable-shallow-clone: true
 
     modules:
